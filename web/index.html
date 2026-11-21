@@ -20,10 +20,15 @@
       <h1>Climatisation</h1>
       <p class="status" id="status"><span class="dot"></span><span id="statusText">Connexion…</span></p>
     </div>
+    <div class="top-actions">
+    <button class="pill-btn" id="allOffBtn" hidden>Tout éteindre</button>
     <button class="icon-btn" id="settingsBtn" aria-label="Réglages">
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-1.7-1l-.4-2.6h-4l-.3 2.6a7.6 7.6 0 0 0-1.8 1l-2.4-1-2 3.4L4.6 11a7.5 7.5 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 0 0 1.8 1l.3 2.6h4l.4-2.6a7.6 7.6 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6ZM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"/></svg>
     </button>
+    </div>
   </header>
+
+  <nav class="rooms" id="rooms" aria-label="Pièces" hidden></nav>
 
   <div class="banner" id="banner" hidden></div>
 
@@ -77,6 +82,12 @@
         <button class="icon-btn" value="close" aria-label="Fermer">✕</button>
       </div>
 
+      <div class="field">
+        <label for="nameInput">Nom de la pièce</label>
+        <input id="nameInput" type="text" maxlength="32" autocomplete="off" placeholder="Salon, Chambre…">
+        <p class="hint">Chaque clim a son propre boîtier. Le nom sert à les reconnaître dans l'app.</p>
+      </div>
+
       <div class="field" id="learnField">
         <label>Détection automatique</label>
         <p class="hint">Pointez votre télécommande vers le boîtier puis appuyez sur un bouton : la marque est reconnue toute seule.</p>
@@ -100,6 +111,12 @@
         <label>Synchronisation</label>
         <p class="hint">Si la clim n'est plus dans l'état affiché, renvoyez tout l'état d'un coup.</p>
         <button type="button" class="btn" id="resendBtn">Renvoyer l'état à la clim</button>
+      </div>
+
+      <div class="field">
+        <label>Autres clims de la maison</label>
+        <p class="hint">Les boîtiers branchés sur le même Wi-Fi se trouvent tout seuls (toutes les 10 min). Pour en voir un nouveau tout de suite :</p>
+        <button type="button" class="btn" id="scanBtn">Rechercher les autres boîtiers</button>
       </div>
 
       <p class="hint small" id="deviceInfo"></p>

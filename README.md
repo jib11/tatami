@@ -9,6 +9,9 @@ Téléphone ──Wi-Fi──▶ Boîtier ESP32 ──infrarouge──▶ Climat
  (app « Clim »)       http://clim.local
 ```
 
+**Toute la maison :** un boîtier par clim (l'infrarouge doit « voir » la clim), et une
+seule app pour toutes les pièces, avec un bouton **Tout éteindre**.
+
 **Ce que fait l'app :** marche/arrêt, température (16–30 °C), mode (auto, froid, chaud,
 déshumidification, ventilation), vitesse de ventilation, oscillation, turbo, silence, éco,
 écran, et arrêt programmé (30 min à 8 h).
@@ -64,11 +67,26 @@ Placez la LED **face à la clim**, à vue directe (portée habituelle : 3 à 6 m
 
 1. Au premier démarrage, le boîtier crée un réseau Wi-Fi **« Clim-Config »**.
 2. Connectez-y votre téléphone : une page s'ouvre (sinon allez sur `http://192.168.4.1`).
-3. Choisissez le Wi-Fi de la maison et tapez son mot de passe. Le boîtier redémarre et s'y connecte.
+3. Choisissez le Wi-Fi de la maison, tapez son mot de passe et donnez un **nom de pièce**
+   (Salon, Chambre…). Le boîtier redémarre et s'y connecte.
 
 Pour changer de réseau plus tard : **maintenez le bouton BOOT de l'ESP32 pendant 5 secondes.**
 
-## 5. Installer l'app sur le téléphone
+## 5. Plusieurs clims
+
+Répétez les étapes 1 à 4 pour chaque clim, en donnant un nom différent à chaque pièce.
+Chaque boîtier reçoit sa propre adresse (`clim-salon.local`, `clim-chambre.local`…),
+et ils **se trouvent tout seuls** sur le Wi-Fi.
+
+Dans l'app, une barre de pièces apparaît sous le titre : une pastille verte signale une clim allumée.
+**Tout éteindre** coupe toutes les clims d'un coup. Un nouveau boîtier apparaît sous 10 minutes,
+ou tout de suite avec Réglages → **Rechercher les autres boîtiers**. Le nom d'une pièce se
+change aussi dans les réglages.
+
+Il suffit d'installer l'app **une seule fois**, depuis n'importe quel boîtier : elle pilote tous
+les autres. Si ce boîtier est débranché, ouvrez l'app depuis un autre.
+
+## 6. Installer l'app sur le téléphone
 
 Ouvrez **http://clim.local** dans le navigateur du téléphone, connecté au même Wi-Fi.
 Si l'adresse ne marche pas (certains Android), utilisez l'adresse IP du boîtier, visible
@@ -79,7 +97,7 @@ dans votre box internet ou dans le moniteur série (`pio device monitor`).
 
 L'icône « Clim » s'ouvre ensuite en plein écran, comme une app.
 
-## 6. Premier réglage
+## 7. Premier réglage (pour chaque pièce)
 
 1. Ouvrez **Réglages** (roue dentée).
 2. **Détecter avec ma télécommande** : pointez la télécommande vers le boîtier et appuyez sur
@@ -120,8 +138,9 @@ web/             l'application (HTML/CSS/JS), intégrée au programme
 | `POST /api/state` `{"power":true,"mode":"cool","temp":22,"fan":"auto","timer":60}` | Change n'importe quels champs puis envoie |
 | `POST /api/send` | Renvoie tout l'état |
 | `GET /api/protocols` | Marques prises en charge |
-| `POST /api/config` `{"protocol":"DAIKIN","model":-1}` | Choisit la marque |
+| `POST /api/config` `{"protocol":"DAIKIN","model":-1,"name":"Salon"}` | Choisit la marque / renomme la pièce |
+| `GET /api/devices` | Ce boîtier et ceux des autres pièces (`?refresh=1` relance la recherche) |
 | `POST /api/learn` | Détection de la marque pendant 30 s |
 
 Exemple de raccourci iPhone « Allume la clim » : action *Obtenir le contenu de l'URL*,
-méthode POST, `http://clim.local/api/state`, corps JSON `{"power": true}`.
+méthode POST, `http://clim-salon.local/api/state`, corps JSON `{"power": true}`.

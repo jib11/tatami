@@ -13,6 +13,8 @@
 #include <WiFi.h>
 #include <WiFiManager.h>
 
+#include <vector>
+
 #ifndef IR_SEND_PIN
 #define IR_SEND_PIN 4
 #endif
@@ -20,7 +22,7 @@
 #define IR_RECV_PIN 14
 #endif
 #ifndef HOSTNAME
-#define HOSTNAME "clim"
+#define HOSTNAME "clim"  // préfixe : clim.local, clim-chambre.local…
 #endif
 #define RESET_BUTTON_PIN 0  // bouton BOOT : appui 5 s = oublier le Wi-Fi
 
@@ -55,6 +57,17 @@ static uint32_t offAt = 0;       // millis() de l'arrêt programmé, 0 = aucun
 static uint32_t learnUntil = 0;  // millis() de fin de détection, 0 = inactif
 static String lastLearned;
 static bool lastSendOk = true;
+
+// ---- Plusieurs clims : un boîtier par pièce, qui se trouvent entre eux (mDNS) ----
+static String roomName;  // ex. « Salon »
+static String hostName;  // ex. « clim-salon » -> http://clim-salon.local
+struct Peer {
+  String name;
+  IPAddress ip;
+};
+static std::vector<Peer> peers;
+static uint32_t nextDiscovery = 0;
+static const uint32_t kDiscoveryEveryMs = 10UL * 60 * 1000;
 
 // ---- Conversions texte <-> énumérations ----
 struct Pair {
@@ -92,6 +105,54 @@ static bool fromName(const Pair (&table)[N], const char *name, int &out) {
 
 static bool active(uint32_t deadline) {
   return deadline != 0 && (int32_t)(deadline - millis()) > 0;
+}
+
+// ---- Nom de la pièce, nom réseau, découverte des autres boîtiers ----
+static String slugify(String in) {
+  static const char *from[] = {"É", "é", "è", "ê", "ë", "à", "â", "ä", "î", "ï", "ô", "ö", "ù", "û", "ü", "ç"};
+  static const char *to[] = {"e", "e", "e", "e", "e", "a", "a", "a", "i", "i", "o", "o", "u", "u", "u", "c"};
+  in.toLowerCase();
+  for (size_t i = 0; i < sizeof(from) / sizeof(from[0]); i++) in.replace(from[i], to[i]);
+  String out;
+  for (unsigned int i = 0; i < in.length(); i++) {
+    char c = in[i];
+    bool ok = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
+    if (ok) out += c;
+    else if (out.length() && !out.endsWith("-")) out += '-';
+  }
+  while (out.endsWith("-")) out.remove(out.length() - 1);
+  return out.substring(0, 24);
+}
+
+static void setRoomName(String name) {
+  name.trim();
+  if (name.isEmpty()) name = "Clim";
+  roomName = name.substring(0, 32);
+  String slug = slugify(roomName);
+  hostName = (slug.isEmpty() || slug == HOSTNAME) ? String(HOSTNAME) : String(HOSTNAME) + "-" + slug;
+}
+
+static void startMdns() {
+  MDNS.end();
+  if (!MDNS.begin(hostName.c_str())) return;
+  MDNS.addService("http", "tcp", 80);
+  MDNS.addService("clim", "tcp", 80);
+  MDNS.addServiceTxt("clim", "tcp", "name", roomName.c_str());
+}
+
+// Bloque ~3 s : appelé au démarrage, toutes les 10 min, ou à la demande de l'app.
+static void discoverPeers() {
+  int n = MDNS.queryService("clim", "tcp");
+  peers.clear();
+  for (int i = 0; i < n; i++) {
+    IPAddress ip = MDNS.IP(i);
+    if (ip == WiFi.localIP() || ip == IPAddress()) continue;
+    String name = MDNS.txt(i, "name");
+    if (name.isEmpty()) name = MDNS.hostname(i);
+    peers.push_back({name, ip});
+  }
+  nextDiscovery = (millis() + kDiscoveryEveryMs) | 1;
+  Serial.printf("Autres boîtiers trouvés : %d\n", (int)peers.size());
 }
 
 // ---- Persistance ----
@@ -137,6 +198,8 @@ static TxResult transmit(bool force) {
 // ---- JSON ----
 static void stateToJson(JsonDocument &d) {
   const stdAc::state_t &s = ac.next;
+  d["name"] = roomName;
+  d["host"] = hostName;
   d["power"] = s.power;
   d["mode"] = toName(kModes, (int)s.mode, "cool");
   d["temp"] = s.degrees;
@@ -181,12 +244,19 @@ static void applyJson(JsonObjectConst o) {
   }
 }
 
+// L'app chargée depuis un boîtier interroge directement les autres boîtiers.
+static void sendCors() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.sendHeader("Access-Control-Allow-Private-Network", "true");
+}
+
 static void reply(int code, const char *error = nullptr) {
   JsonDocument d;
   stateToJson(d);
   if (error) d["error"] = error;
   String out;
   serializeJson(d, out);
+  sendCors();
   server.sendHeader("Cache-Control", "no-store");
   server.send(code, "application/json", out);
 }
@@ -256,6 +326,7 @@ static void setupRoutes() {
     }
     String out;
     serializeJson(d, out);
+    sendCors();
     server.sendHeader("Cache-Control", "max-age=3600");
     server.send(200, "application/json", out);
   });
@@ -268,6 +339,11 @@ static void setupRoutes() {
       if (!IRac::isProtocolSupported(p)) return reply(400, "Marque non prise en charge.");
       if (p != ac.next.protocol) ac.next.model = -1;
       ac.next.protocol = p;
+    }
+    if (d["name"].is<const char *>()) {
+      setRoomName(d["name"].as<String>());
+      prefs.putString("name", roomName);
+      startMdns();
     }
     if (d["model"].is<int>()) ac.next.model = d["model"];
     else if (d["model"].is<const char *>()) ac.next.model = IRac::strToModel(d["model"], -1);
@@ -289,7 +365,36 @@ static void setupRoutes() {
     reply(200);
   });
 
-  server.onNotFound([]() { server.send(404, "text/plain", "Introuvable"); });
+  // Liste des boîtiers (celui-ci + les autres pièces). ?refresh=1 relance la recherche.
+  server.on("/api/devices", HTTP_GET, []() {
+    if (server.hasArg("refresh")) discoverPeers();
+    JsonDocument d;
+    JsonArray arr = d.to<JsonArray>();
+    JsonObject me = arr.add<JsonObject>();
+    me["name"] = roomName;
+    me["ip"] = WiFi.localIP().toString();
+    me["self"] = true;
+    for (const auto &p : peers) {
+      JsonObject o = arr.add<JsonObject>();
+      o["name"] = p.name;
+      o["ip"] = p.ip.toString();
+    }
+    String out;
+    serializeJson(d, out);
+    sendCors();
+    server.sendHeader("Cache-Control", "no-store");
+    server.send(200, "application/json", out);
+  });
+
+  server.onNotFound([]() {
+    if (server.method() == HTTP_OPTIONS) {  // pré-requête CORS
+      sendCors();
+      server.sendHeader("Access-Control-Allow-Methods", "GET, POST");
+      server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+      return server.send(204);
+    }
+    server.send(404, "text/plain", "Introuvable");
+  });
 }
 
 // ---- Réception : détection de la marque + suivi de la vraie télécommande ----
@@ -346,19 +451,30 @@ void setup() {
   pinMode(RESET_BUTTON_PIN, INPUT_PULLUP);
   prefs.begin("clim", false);
   loadState();
+  setRoomName(prefs.getString("name", "Clim"));
 
   WiFi.mode(WIFI_STA);
-  WiFi.setHostname(HOSTNAME);
+  WiFi.setHostname(hostName.c_str());
   WiFiManager wm;
   wm.setConfigPortalTimeout(300);
+  WiFiManagerParameter roomParam("room", "Nom de la pi&egrave;ce (ex. Salon, Chambre)",
+                                 roomName.c_str(), 32);
+  wm.addParameter(&roomParam);
+  bool configSaved = false;
+  wm.setSaveConfigCallback([&]() { configSaved = true; });
   // Premier démarrage : se connecter au Wi-Fi "Clim-Config" depuis le téléphone
-  // pour choisir le réseau de la maison.
+  // pour choisir le réseau de la maison et nommer la pièce.
   if (!wm.autoConnect("Clim-Config")) ESP.restart();
+  if (configSaved) {
+    setRoomName(roomParam.getValue());
+    prefs.putString("name", roomName);
+  }
   WiFi.setAutoReconnect(true);
-  Serial.printf("Connecté : http://%s  (http://%s.local)\n",
-                WiFi.localIP().toString().c_str(), HOSTNAME);
+  Serial.printf("%s connecté : http://%s  (http://%s.local)\n", roomName.c_str(),
+                WiFi.localIP().toString().c_str(), hostName.c_str());
 
-  if (MDNS.begin(HOSTNAME)) MDNS.addService("http", "tcp", 80);
+  startMdns();
+  discoverPeers();
 
 #if IR_RECV_PIN >= 0
   irrecv.enableIRIn();
@@ -379,5 +495,6 @@ void loop() {
     Serial.println("Arrêt programmé exécuté");
   }
   if (learnUntil && !active(learnUntil)) learnUntil = 0;
+  if (nextDiscovery && !active(nextDiscovery)) discoverPeers();
   delay(2);
 }

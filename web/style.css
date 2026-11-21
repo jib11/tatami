@@ -75,6 +75,30 @@ h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
   display: grid; place-items: center; color: var(--text);
 }
 
+/* --- Pièces --- */
+.rooms {
+  max-width: 480px; margin: 4px auto 0; display: flex; gap: 8px;
+  overflow-x: auto; scrollbar-width: none; padding: 2px 0 4px;
+}
+.rooms::-webkit-scrollbar { display: none; }
+.room {
+  flex: 0 0 auto; height: 40px; padding: 0 14px; border-radius: 20px;
+  border: 1px solid var(--line); background: var(--card);
+  display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 500;
+}
+.room[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.room-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); opacity: .6; }
+.room-dot.on { background: var(--ok); opacity: 1; }
+.room-dot.offline { background: var(--danger); opacity: 1; }
+.room-temp { color: var(--muted); font-variant-numeric: tabular-nums; }
+.room[aria-pressed="true"] .room-temp { color: inherit; }
+.top-actions { display: flex; align-items: center; gap: 8px; }
+.pill-btn {
+  height: 42px; padding: 0 14px; border-radius: 21px; border: 1px solid var(--line);
+  background: var(--card); color: var(--danger); font-size: 14px; font-weight: 600; white-space: nowrap;
+}
+.pill-btn:disabled { color: var(--muted); opacity: .6; }
+
 .banner {
   max-width: 480px; margin: 8px auto 0; padding: 10px 14px;
   border-radius: 12px; font-size: 14px;
