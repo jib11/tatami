@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Clim</title>
+  <meta name="theme-color" content="#0e1116">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Clim">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-mode="cool" class="is-off">
+  <header class="top">
+    <div>
+      <h1>Climatisation</h1>
+      <p class="status" id="status"><span class="dot"></span><span id="statusText">Connexion…</span></p>
+    </div>
+    <button class="icon-btn" id="settingsBtn" aria-label="Réglages">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-1.7-1l-.4-2.6h-4l-.3 2.6a7.6 7.6 0 0 0-1.8 1l-2.4-1-2 3.4L4.6 11a7.5 7.5 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 0 0 1.8 1l.3 2.6h4l.4-2.6a7.6 7.6 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6ZM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"/></svg>
+    </button>
+  </header>
+
+  <div class="banner" id="banner" hidden></div>
+
+  <main>
+    <section class="dial">
+      <button class="step" id="tempDown" aria-label="Baisser la température">−</button>
+      <div class="ring-wrap">
+        <svg class="ring" viewBox="0 0 200 200" aria-hidden="true">
+          <circle class="track" cx="100" cy="100" r="88" transform="rotate(135 100 100)"/>
+          <circle class="fill" id="ringFill" cx="100" cy="100" r="88" transform="rotate(135 100 100)"/>
+        </svg>
+        <div class="ring-center">
+          <div class="mode-label" id="modeLabel">Froid</div>
+          <div class="temp"><span id="tempValue">24</span><span class="unit">°C</span></div>
+          <div class="sub-label" id="subLabel"></div>
+        </div>
+      </div>
+      <button class="step" id="tempUp" aria-label="Monter la température">+</button>
+    </section>
+
+    <button class="power" id="powerBtn">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M12 3v8M6.3 6.3a8 8 0 1 0 11.4 0"/></svg>
+      <span id="powerLabel">Allumer</span>
+    </button>
+
+    <section class="group">
+      <h2>Mode</h2>
+      <div class="seg" id="modeSeg"></div>
+    </section>
+
+    <section class="group">
+      <h2>Ventilation</h2>
+      <div class="seg" id="fanSeg"></div>
+    </section>
+
+    <section class="group">
+      <h2>Options</h2>
+      <div class="toggles" id="toggles"></div>
+    </section>
+
+    <section class="group">
+      <h2>Arrêt programmé</h2>
+      <div class="seg" id="timerSeg"></div>
+    </section>
+  </main>
+
+  <dialog id="settings">
+    <form method="dialog" class="sheet">
+      <div class="sheet-head">
+        <h2>Réglages</h2>
+        <button class="icon-btn" value="close" aria-label="Fermer">✕</button>
+      </div>
+
+      <div class="field" id="learnField">
+        <label>Détection automatique</label>
+        <p class="hint">Pointez votre télécommande vers le boîtier puis appuyez sur un bouton : la marque est reconnue toute seule.</p>
+        <button type="button" class="btn primary" id="learnBtn">Détecter avec ma télécommande</button>
+        <p class="hint strong" id="learnStatus" aria-live="polite"></p>
+      </div>
+
+      <div class="field">
+        <label for="protoSelect">Marque / protocole</label>
+        <select id="protoSelect"><option value="">— Choisir —</option></select>
+        <p class="hint">Si la clim ne réagit pas, essayez un autre protocole de la même marque.</p>
+      </div>
+
+      <div class="field">
+        <label for="modelInput">Modèle (facultatif)</label>
+        <input id="modelInput" type="number" inputmode="numeric" placeholder="Par défaut">
+        <p class="hint">Certaines marques ont plusieurs variantes (1, 2, 3…). Laissez vide si ça marche.</p>
+      </div>
+
+      <div class="field">
+        <label>Synchronisation</label>
+        <p class="hint">Si la clim n'est plus dans l'état affiché, renvoyez tout l'état d'un coup.</p>
+        <button type="button" class="btn" id="resendBtn">Renvoyer l'état à la clim</button>
+      </div>
+
+      <p class="hint small" id="deviceInfo"></p>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
